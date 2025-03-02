@@ -1,10 +1,22 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UploadModule } from './upload/upload.module';
+import { Image } from './entities/image.entity';
 
 @Module({
-  imports: [],
-  controllers: [AppController],
-  providers: [AppService],
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres', // or your chosen relational DB
+      host: 'localhost',
+      port: 5432,
+      username: 'postgres',
+      password: 'postgres',
+      database: 'image_uploader_db',
+      entities: [Image],
+      synchronize: true, // enable only in development
+    }),
+    UploadModule,
+  ],
 })
 export class AppModule {}
