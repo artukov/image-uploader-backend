@@ -1,5 +1,5 @@
 // src/entities/image.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity()
 export class Image {
@@ -26,4 +26,8 @@ export class Image {
 
   @Column({ default: 0 })
   retryCount: number;
+  
+  @Column({ nullable: true })
+  @Index({ unique: true }) // Add unique index for duplicate detection
+  uniqueId: string;
 }
