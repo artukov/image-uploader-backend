@@ -7,7 +7,10 @@ import {
   Body, 
   BadRequestException,
   ConflictException,
-  Logger
+  Logger,
+  Get,
+  Param,
+  Query
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UploadService } from './upload.service';
@@ -53,6 +56,7 @@ export class UploadController {
     @Body('longitude') longitude: string,
     @Body('timestamp') timestamp: string,
     @Body('id') uniqueId: string, // Add uniqueId parameter
+    @Body('retryCount') retryCount: string = '0', // Track retry count
   ) {
     if (!latitude || !longitude) {
       throw new BadRequestException('Geolocation data is required.');
@@ -63,12 +67,19 @@ export class UploadController {
       if (uniqueId) {
         const existingImage = await this.uploadService.findByUniqueId(uniqueId);
         if (existingImage) {
-          this.logger.log(`Duplicate upload detected for image ID: ${uniqueId}`);
+          // Update retry count if provided
+          if (retryCount && parseInt(retryCount) > existingImage.retryCount) {
+            existingImage.retryCount = parseInt(retryCount);
+            await this.uploadService.updateImage(existingImage);
+          }
+          
+          this.logger.log(`Duplicate upload detected for image ID: ${uniqueId}, retry count: ${existingImage.retryCount}`);
           return {
             success: true,
             message: 'Image already processed',
             duplicate: true,
-            imageId: existingImage.id
+            imageId: existingImage.id,
+            retryCount: existingImage.retryCount
           };
         }
       }
@@ -79,6 +90,7 @@ export class UploadController {
         longitude: parseFloat(longitude),
         timestamp,
         uniqueId, // Pass uniqueId to service
+        retryCount: parseInt(retryCount || '0')
       });
     } catch (error) {
       this.logger.error(`Upload error: ${error.message}`);
@@ -90,5 +102,51 @@ export class UploadController {
       
       throw error;
     }
+  }
+
+  @Get()
+  async getAllImages(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 20
+  ) {
+    const [images, total] = await this.uploadService.findAll(page, limit);
+    
+    // Transform data for client consumption
+    const transformedImages = images.map(image => ({
+      id: image.id,
+      imageUrl: `/uploads/${image.filePath.split('/').pop()}`, // Extract filename from path
+      uploadedAt: image.uploadedAt,
+      latitude: image.latitude,
+      longitude: image.longitude,
+      retryCount: image.retryCount,
+      status: image.status
+    }));
+    
+    return {
+      images: transformedImages,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  @Get(':id')
+  async getImageById(@Param('id') id: number) {
+    const image = await this.uploadService.findById(id);
+    
+    if (!image) {
+      throw new BadRequestException('Image not found');
+    }
+    
+    return {
+      id: image.id,
+      imageUrl: `/uploads/${image.filePath.split('/').pop()}`,
+      uploadedAt: image.uploadedAt,
+      latitude: image.latitude,
+      longitude: image.longitude,
+      retryCount: image.retryCount,
+      status: image.status
+    };
   }
 }
