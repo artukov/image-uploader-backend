@@ -1,4 +1,3 @@
-// src/entities/image.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 @Entity()
